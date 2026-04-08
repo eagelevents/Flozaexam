@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Floza-Exam | Admin Dashboard Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #4e7bf7 0%, #3b82f6 100%);
+            --accent-gradient: linear-gradient(135deg, #f59e0b 0%, #fbdb32 100%);
+            --bg: #c8ff00; 
+            --white: #ffffff;
+            --text: #1e293b;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            scroll-behavior: smooth;
+        }
+
+        .hidden { display: none !important; }
+
+        header {
+            background: var(--primary-gradient);
+            color: white;
+            padding: 15px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 25px 40px;
+        }
+
+        .stat-card {
+            background: var(--white);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border-left: 6px solid #f59e0b;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
+        .stat-card .number { font-size: 28px; font-weight: bold; color: #1e3a8a; }
+
+        .main-container { padding: 0 40px 40px; }
+        .grid-2 { display: grid; grid-template-columns: 350px 1fr; gap: 25px; margin-bottom: 25px; }
+
+        .card {
+            background: var(--white);
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        h2 { color: #1e3a8a; margin-top: 0; font-size: 18px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .btn-primary { background: var(--primary-gradient); color: white; width: 100%; }
+        .btn-accent { background: var(--accent-gradient); color: #1e3a8a; width: 100%; }
+        .btn-outline { background: transparent; border: 1.5px solid #e2e8f0; color: #64748b; }
+
+        .filter-bar { display: flex; gap: 10px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px; }
+        .filter-btn {
+            padding: 8px 15px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            white-space: nowrap;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .filter-btn.active { background: #1e3a8a; color: white; border-color: #1e3a8a; }
+
+        .q-item {
+            border: 1px solid #f1f5f9;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            background: #fafafa;
+        }
+        .q-actions { display: flex; gap: 10px; margin-top: 10px; }
+        .edit-btn { color: #3b82f6; font-size: 13px; cursor: pointer; background: #eff6ff; padding: 5px 10px; border-radius: 5px; }
+        .del-btn { color: #ef4444; font-size: 13px; cursor: pointer; background: #fee2e2; padding: 5px 10px; border-radius: 5px; }
+
+        .table-container { max-height: 400px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; background: white; }
+        th { background: #f8fafc; padding: 12px; text-align: left; font-size: 12px; color: #64748b; position: sticky; top: 0; border-bottom: 2px solid #e2e8f0; }
+        td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+
+        .modal { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:2000; }
+        .modal-content { background:white; padding:30px; border-radius:20px; width:90%; max-width:500px; }
+    </style>
+</head>
+<body>
+
+    <div id="admin-login" class="card" style="max-width:350px; margin: 150px auto; text-align:center;">
+        <h2>🔐 Teacher Access</h2>
+        <input type="password" id="adminPassInput" placeholder="Password">
+        <button class="btn-primary" onclick="checkAdminPass()">Login</button>
+    </div>
+
+    <div id="admin-content" class="hidden">
+        <header>
+            <div style="font-size: 20px; font-weight: bold;">Floza-Exam | Admin <span id="active-user" style="font-size:12px; color:#cffb32; margin-left:10px;"></span></div>
+            <button onclick="location.reload()" class="btn-outline" style="color:white; border-color:rgba(255,255,255,0.3);">Logout</button>
+        </header>
+
+        <div class="stats-container">
+            <div class="stat-card" onclick="scrollToSection('sec-students')">
+                <div><h3>Students</h3><div class="number" id="stat-students">0</div></div>
+                <div style="font-size: 30px;">👥</div>
+            </div>
+            <div class="stat-card" onclick="scrollToSection('sec-questions')" style="border-left-color: #3b82f6;">
+                <div><h3>Questions</h3><div class="number" id="stat-questions">0</div></div>
+                <div style="font-size: 30px;">📝</div>
+            </div>
+            <div class="stat-card" onclick="scrollToSection('sec-results')" style="border-left-color: #10b981;">
+                <div><h3>Results</h3><div class="number" id="stat-results">0</div></div>
+                <div style="font-size: 30px;">🏆</div>
+            </div>
+        </div>
+
+        <div class="main-container">
+            <div class="card">
+                <h2>📈 Performance Analysis</h2>
+                <div style="height: 300px;"><canvas id="performanceChart"></canvas></div>
+            </div>
+
+            <div class="grid-2">
+                <div>
+                    <div class="card" id="sec-students">
+                        <h2>👤 Register Student</h2>
+                        <input type="text" id="regID" placeholder="ID">
+                        <input type="text" id="regName" placeholder="Full Name">
+                        <select id="regStream"><option>Natural</option><option>Social</option></select>
+                        <input type="password" id="regPass" placeholder="Password">
+                        <button class="btn-accent" onclick="registerStudent()">Register</button>
+                    </div>
+
+                    <div class="card">
+                        <h2>📝 Bulk CSV Upload</h2>
+                        <select id="bulkSub">
+                            <option>Maths</option><option>English</option><option>Physics</option>
+                            <option>Biology</option><option>Chemistry</option><option>History</option>
+                            <option>Geography</option><option>Economics</option><option>Sat</option>
+                        </select>
+                        <input type="number" id="bulkTimer" placeholder="Minutes">
+                        <input type="text" id="bulkPass" placeholder="Exam Passcode">
+                        <input type="file" id="csvFile" accept=".csv">
+                        <button class="btn-primary" onclick="uploadCSV()">Upload CSV</button>
+                    </div>
+                </div>
+
+                <div class="card" id="sec-results">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; margin-bottom: 15px;">
+                        <h2 style="border:none;">📊 Recent Exam Results</h2>
+                        <button class="btn-accent" style="width: auto; padding: 5px 15px; font-size: 12px;" onclick="exportResultsToExcel()">📥 Export Report Cards</button>
+                    </div>
+                    <div class="table-container">
+                        <table id="results-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Subject</th>
+                                    <th>Score</th>
+                                    <th>Details</th>
+                                    <th>Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="res-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" id="sec-questions">
+                <h2>📚 Question Bank Management</h2>
+                <div class="filter-bar" id="sub-filters">
+                    <button class="filter-btn active" onclick="filterBySub('All')">All Subjects</button>
+                </div>
+                <div id="q-manager-list" style="max-height: 600px; overflow-y: auto; padding-right: 10px;">
+                    <p style="text-align:center; color:#999;">Loading questions...</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>📋 Registered Students</h2>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>ID</th><th>Name</th><th>Stream</th><th>Action</th></tr></thead>
+                        <tbody id="student-list"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="editModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Edit Question</h3>
+            <textarea id="editQ" rows="3"></textarea>
+            <div id="editOpts"></div>
+            <p style="font-size:12px; color:#666;">Correct Answer Index (0-3):</p>
+            <input type="number" id="editAns" min="0" max="3">
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn-primary" onclick="saveEdit()">Save Changes</button>
+                <button class="btn-outline" onclick="closeEdit()" style="width:100%;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAv3J7gcURh2lT_bKspld-xFb0OJX5be3o",
+            authDomain: "finote-loza-portal.firebaseapp.com",
+            projectId: "finote-loza-portal",
+            messagingSenderId: "406419699162",
+            appId: "1:406419699162:web:c24769492e116f5fe8fce3"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let allQuestions = [], currentEditId = null, activeSubFilter = 'All';
+        let perfChart = null;
+
+        window.checkAdminPass = () => {
+            if(document.getElementById('adminPassInput').value === "Floza@2018#12Mudi") {
+                document.getElementById('admin-login').classList.add('hidden');
+                document.getElementById('admin-content').classList.remove('hidden');
+                initDashboard();
+            } else alert("Invalid Password!");
+        };
+
+        function initDashboard() {
+            onSnapshot(collection(db, "students"), s => {
+                document.getElementById('stat-students').innerText = s.size;
+                const b = document.getElementById('student-list'); b.innerHTML = "";
+                s.forEach(d => {
+                    const st = d.data();
+                    b.innerHTML += `<tr><td><b>${st.studentID}</b></td><td>${st.name}</td><td>${st.stream}</td>
+                    <td><button class="del-btn" onclick="deleteItem('students','${d.id}')">Delete</button></td></tr>`;
+                });
+            });
+
+            onSnapshot(collection(db, "results"), s => {
+                document.getElementById('stat-results').innerText = s.size;
+                const b = document.getElementById('res-list'); 
+                b.innerHTML = "";
+                const resultsData = [];
+                s.forEach(d => {
+                    const r = d.data();
+                    resultsData.push(r);
+                    let detailed = r.responses ? r.responses.map((ans, i) => `Q${i+1}:${ans}`).join(', ') : "N/A";
+
+                    b.innerHTML += `<tr>
+                        <td>${r.studentID || '---'}</td>
+                        <td>${r.name || '---'}</td>
+                        <td>${r.subject || '---'}</td>
+                        <td><b style="color:#10b981">${r.score || 0}/${r.total || 0}</b></td>
+                        <td style="font-size:10px; color:#555; max-width:150px; overflow-wrap: break-word;">${detailed}</td>
+                        <td><small>${r.date || '---'}</small></td>
+                        <td><button class="del-btn" onclick="deleteItem('results','${d.id}')">Delete</button></td>
+                    </tr>`;
+                });
+                updateChart(resultsData);
+            });
+
+            onSnapshot(collection(db, "questions"), s => {
+                document.getElementById('stat-questions').innerText = s.size;
+                allQuestions = [];
+                s.forEach(d => allQuestions.push({ id: d.id, ...d.data() }));
+                renderQuestionManager();
+                renderFilters();
+            });
+        }
+
+        window.deleteItem = async (col, id) => {
+            if(confirm("ይህንን መረጃ ለመሰረዝ እርግጠኛ ነህ?")) {
+                try {
+                    await deleteDoc(doc(db, col, id));
+                    alert("ተሰርዟል!");
+                } catch(e) { alert("መሰረዝ አልተቻለም: " + e.message); }
+            }
+        };
+
+        window.exportResultsToExcel = () => {
+            const rows = Array.from(document.querySelectorAll("#res-list tr"));
+            const wb = XLSX.utils.book_new();
+            const students = {};
+
+            rows.forEach(row => {
+                const cells = row.querySelectorAll("td");
+                if (cells.length < 6) return;
+
+                const id = cells[0].innerText;
+                const name = cells[1].innerText;
+                const subject = cells[2].innerText;
+                const score = cells[3].innerText;
+                const detailsStr = cells[4].innerText;
+                const date = cells[5].innerText;
+
+                if (!students[id]) {
+                    students[id] = { id, name, date, subjects: [] };
+                }
+                const detailsArray = detailsStr !== "N/A" ? detailsStr.split(", ") : [];
+                students[id].subjects.push({ subject, score, details: detailsArray });
+            });
+
+            Object.values(students).forEach(std => {
+                let sheetData = [
+                    ["ID", std.id], ["Name", std.name], ["Date", std.date], [],
+                    ["NO", "Subject"]
+                ];
+                std.subjects.forEach(s => sheetData[4].push(s.subject));
+                const scoreRow = ["Score", ""];
+                std.subjects.forEach(s => scoreRow.push(s.score));
+                sheetData.push(scoreRow);
+                sheetData.push([]); 
+
+                const maxQs = Math.max(...std.subjects.map(s => s.details.length), 0);
+                for (let i = 0; i < maxQs; i++) {
+                    const qRow = ["Q" + (i + 1), ""];
+                    std.subjects.forEach(s => {
+                        let ans = s.details[i] ? s.details[i].split(":")[1] : "-";
+                        qRow.push(ans || "-");
+                    });
+                    sheetData.push(qRow);
+                }
+                const ws = XLSX.utils.aoa_to_sheet(sheetData);
+                XLSX.utils.book_append_sheet(wb, ws, std.name.substring(0, 31));
+            });
+            XLSX.writeFile(wb, "Floza_Student_Report_Cards.xlsx");
+        };
+
+        function updateChart(data) {
+            const subjects = {};
+            data.forEach(r => subjects[r.subject] = (subjects[r.subject] || 0) + 1);
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            if(perfChart) perfChart.destroy();
+            perfChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(subjects),
+                    datasets: [{ label: 'Students Tested', data: Object.values(subjects), backgroundColor: '#3b82f6', borderRadius: 5 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function renderFilters() {
+            const subs = ['All', ...new Set(allQuestions.map(q => q.subject))];
+            const container = document.getElementById('sub-filters');
+            container.innerHTML = subs.map(s => `<button class="filter-btn ${activeSubFilter===s?'active':''}" onclick="filterBySub('${s}')">${s}</button>`).join('');
+        }
+
+        window.filterBySub = (sub) => {
+            activeSubFilter = sub;
+            renderFilters();
+            renderQuestionManager();
+        };
+
+        function renderQuestionManager() {
+            const list = document.getElementById('q-manager-list');
+            const filtered = activeSubFilter === 'All' ? allQuestions : allQuestions.filter(q => q.subject === activeSubFilter);
+            if(filtered.length === 0) { list.innerHTML = `<p style="text-align:center; padding:20px; color:#999;">ምንም ጥያቄ አልተገኘም</p>`; return; }
+            list.innerHTML = filtered.map(q => `
+                <div class="q-item">
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="font-size:11px; color:#1e3a8a; font-weight:bold; background:#e0e7ff; padding:2px 8px; border-radius:10px;">${q.subject} (${q.stream})</span>
+                        <span style="font-size:11px; color:#666;">Timer: ${q.duration} min</span>
+                    </div>
+                    <p style="margin:10px 0; font-weight:500;">${q.q}</p>
+                    <div style="font-size:13px; color:#555; display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
+                        ${q.opts.map((o, i) => `<div style="${i===q.ans?'color:#10b981; font-weight:bold;':''}">${i+1}. ${o}</div>`).join('')}
+                    </div>
+                    <div class="q-actions">
+                        <span class="edit-btn" onclick="openEdit('${q.id}')">✏️ Edit</span>
+                        <span class="del-btn" onclick="deleteItem('questions','${q.id}')">🗑️ Delete</span>
+                    </div>
+                </div>`).join('');
+        }
+
+        window.openEdit = (id) => {
+            const q = allQuestions.find(x => x.id === id);
+            currentEditId = id;
+            document.getElementById('editQ').value = q.q;
+            document.getElementById('editAns').value = q.ans;
+            document.getElementById('editOpts').innerHTML = q.opts.map((o, i) => `<input type="text" class="edit-opt-val" value="${o}" placeholder="Option ${i+1}">`).join('');
+            document.getElementById('editModal').classList.remove('hidden');
+        };
+
+        window.closeEdit = () => document.getElementById('editModal').classList.add('hidden');
+
+        window.saveEdit = async () => {
+            const qText = document.getElementById('editQ').value;
+            const ansIndex = parseInt(document.getElementById('editAns').value);
+            const newOpts = Array.from(document.querySelectorAll('.edit-opt-val')).map(i => i.value);
+            try {
+                await updateDoc(doc(db, "questions", currentEditId), { q: qText, ans: ansIndex, opts: newOpts });
+                alert("ተስተካክሏል!"); closeEdit();
+            } catch(e) { alert("Error: " + e.message); }
+        };
+
+        window.registerStudent = async () => {
+            const id = document.getElementById('regID').value.trim();
+            const name = document.getElementById('regName').value.trim();
+            const pass = document.getElementById('regPass').value.trim();
+            const stream = document.getElementById('regStream').value;
+            if(!id || !name || !pass) return alert("Fill all!");
+            await addDoc(collection(db, "students"), { studentID: id, name, pass, stream });
+            alert("Registered!");
+            document.getElementById('regID').value = ""; document.getElementById('regName').value = "";
+        };
+
+        window.uploadCSV = function() {
+            const file = document.getElementById('csvFile').files[0];
+            const sub = document.getElementById('bulkSub').value;
+            const pass = document.getElementById('bulkPass').value;
+            const time = document.getElementById('bulkTimer').value;
+            if(!file || !pass || !time) return alert("Missing info!");
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const rows = e.target.result.split('\n').slice(1);
+                for(let row of rows) {
+                    const c = row.split(',');
+                    if(c.length >= 6) {
+                        await addDoc(collection(db, "questions"), {
+                            q: c[0].trim(), opts: [c[1].trim(), c[2].trim(), c[3].trim(), c[4].trim()], 
+                            ans: parseInt(c[5]), subject: sub, pass, duration: parseInt(time),
+                            stream: (["Maths", "English", "Physics", "Biology", "Chemistry"].includes(sub)) ? "Natural" : "Social"
+                        });
+                    }
+                }
+                alert("Uploaded!");
+            };
+            reader.readAsText(file);
+        };
+
+        window.scrollToSection = (id) => document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+    </script>
+</body>
+</html>
