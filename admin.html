@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Floza-Exam Admin | Unified Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+    
+    <style>
+        :root { --primary: #4e7bf7; --bg: #f1f5f9; --white: #ffffff; --success: #10b981; --danger: #ef4444; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; }
+        .hidden { display: none !important; }
+        header { background: var(--primary); color: white; padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; }
+        .main-container { padding: 20px 40px; }
+        .card { background: var(--white); padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .stat-box { background: var(--white); padding: 20px; border-radius: 15px; text-align: center; border-left: 5px solid var(--primary); }
+
+        .controls { display: flex; gap: 10px; margin-bottom: 15px; }
+        input, select, textarea { padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 8px; width: 100%; box-sizing: border-box; }
+        button { padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; border: none; transition: 0.3s; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-excel { background: var(--success); color: white; }
+        .btn-detail { background: #f0f4ff; color: var(--primary); padding: 5px 10px; }
+        .btn-edit { background: #e0e7ff; color: #4338ca; padding: 5px 10px; }
+        .btn-del { background: #fee2e2; color: #ef4444; padding: 5px 10px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #f1f5f9; }
+        th { background: #f8fafc; font-size: 14px; }
+        
+        .subject-group { margin-bottom: 10px; border: 1px solid #eee; border-radius: 10px; overflow: hidden; }
+        .subject-header { padding: 15px; background: #fff; cursor: pointer; font-weight: bold; display: flex; justify-content: space-between; }
+        
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 2000; }
+        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 700px; max-height: 90vh; overflow-y: auto; }
+        .correct-row { color: var(--success); }
+        .wrong-row { color: var(--danger); }
+
+        optgroup { font-weight: bold; color: #4e7bf7; }
+    </style>
+</head>
+<body>
+
+    <div id="admin-login" class="card" style="max-width:350px; margin: 100px auto; text-align:center;">
+        <h2>🔐 Floza Admin Login</h2>
+        <input type="password" id="adminPassInput" placeholder="Password">
+        <button class="btn-primary" style="width:100%; margin-top:10px;" onclick="checkAdminPass()">Login</button>
+    </div>
+
+    <div id="admin-content" class="hidden">
+        <header>
+            <div style="font-size: 20px; font-weight: bold;">Floza-Exam Pro | Control Panel</div>
+            <button onclick="location.reload()" style="background:rgba(255,255,255,0.2); color:white;">Logout</button>
+        </header>
+
+        <div class="main-container">
+            <div class="stats-grid">
+                <div class="stat-box"><div>ጠቅላላ ፈተናዎች</div><div id="total-exams" style="font-size: 1.5rem; font-weight: bold;">0</div></div>
+                <div class="stat-box"><div>አማካኝ ውጤት</div><div id="avg-score" style="font-size: 1.5rem; font-weight: bold;">0%</div></div>
+                <div class="stat-box" style="border-color: #f59e0b;"><div>ተማሪዎች</div><div id="total-students" style="font-size: 1.5rem; font-weight: bold;">0</div></div>
+            </div>
+
+            <div class="card">
+                <h2>📊 የተማሪዎች ውጤት ዝርዝር</h2>
+                <div class="controls">
+                    <input type="text" placeholder="በስም ፈልግ..." onkeyup="searchTable('res-list', this.value)">
+                    <button class="btn-excel" onclick="exportToExcel()">📥 Download Excel</button>
+                </div>
+                <table id="results-table-data">
+                    <thead><tr><th>ID</th><th>ስም</th><th>ትምህርት</th><th>ውጤት</th><th>ተግባር</th></tr></thead>
+                    <tbody id="res-list"></tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h2>📚 የጥያቄዎች ማህደር (Subjects)</h2>
+                <div id="subject-sections"></div>
+            </div>
+
+            <div class="card">
+                <h2>👥 የተመዘገቡ ተማሪዎች</h2>
+                <div class="controls">
+                    <input type="text" placeholder="ተማሪ ፈልግ..." onkeyup="searchTable('std-list', this.value)">
+                </div>
+                <table>
+                    <thead><tr><th>ID</th><th>ስም</th><th>ስትሪም</th><th>ፓስወርድ</th><th>ተግባር</th></tr></thead>
+                    <tbody id="std-list"></tbody>
+                </table>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="card">
+                    <h2>👤 አዲስ ተማሪ መዝግብ</h2>
+                    <input type="text" id="regID" placeholder="Student ID">
+                    <input type="text" id="regName" placeholder="Full Name">
+                    <select id="regStream">
+                        <option value="Natural">Natural Science</option>
+                        <option value="Social">Social Science</option>
+                    </select>
+                    <input type="password" id="regPass" placeholder="Student Password">
+                    <button class="btn-primary" onclick="registerStudent()" style="width:100%; margin-top:10px;">መዝግብ</button>
+                </div>
+
+                <div class="card">
+                    <h2>📝 ጥያቄዎችን ጫን (CSV)</h2>
+                    <select id="bulkSub" style="margin-bottom:10px;">
+                        <option disabled selected>ትምህርት ይምረጡ</option>
+                        <optgroup label="Common (ሁሉም የሚፈትኑት)">
+                            <option>English</option>
+                            <option>Maths</option>
+                            <option>SAT</option>
+                        </optgroup>
+                        <optgroup label="Natural Science Only">
+                            <option>Physics</option>
+                            <option>Biology</option>
+                            <option>Chemistry</option>
+                        </optgroup>
+                        <optgroup label="Social Science Only">
+                            <option>History</option>
+                            <option>Geography</option>
+                            <option>Economics</option>
+                            <option>Citizenship</option>
+                        </optgroup>
+                    </select>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                        <input type="text" id="bulkPass" placeholder="Exam Password">
+                        <input type="number" id="bulkDuration" placeholder="Time (Min)">
+                    </div>
+                    <input type="file" id="csvFile" accept=".csv">
+                    <button class="btn-primary" onclick="uploadCSV()" style="width:100%; margin-top:10px;">ጥያቄዎቹን ጫን</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="editModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>ጥያቄውን ያስተካክሉ</h3>
+            <input type="hidden" id="editQid">
+            <textarea id="editQtext" rows="4" style="margin-bottom:10px;"></textarea>
+            <input type="text" id="opt0" placeholder="Option A" style="margin-bottom:5px;">
+            <input type="text" id="opt1" placeholder="Option B" style="margin-bottom:5px;">
+            <input type="text" id="opt2" placeholder="Option C" style="margin-bottom:5px;">
+            <input type="text" id="opt3" placeholder="Option D" style="margin-bottom:5px;">
+            <label>ትክክለኛ መልስ (0=A, 1=B, 2=C, 3=D):</label>
+            <input type="number" id="editAns" min="0" max="3">
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn-primary" onclick="saveEdit()" style="flex:1">Save Changes</button>
+                <button class="btn-del" onclick="document.getElementById('editModal').classList.add('hidden')" style="flex:1">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="resultDetailModal" class="modal hidden">
+        <div class="modal-content">
+            <h3 id="detailHeader">የተማሪ ዝርዝር መልሶች</h3>
+            <table style="width:100%;">
+                <thead><tr style="background:#f8fafc;"><th>#</th><th>የተማሪ መልስ</th><th>ትክክለኛ መልስ</th><th>ሁኔታ</th></tr></thead>
+                <tbody id="detailBody"></tbody>
+            </table>
+            <button class="btn-primary" onclick="document.getElementById('resultDetailModal').classList.add('hidden')" style="width:100%; margin-top:20px;">ዝጋ</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, updateDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAv3J7gcURh2lT_bKspld-xFb0OJX5be3o",
+            authDomain: "finote-loza-portal.firebaseapp.com",
+            projectId: "finote-loza-portal",
+            messagingSenderId: "406419699162",
+            appId: "1:406419699162:web:c24769492e116f5fe8fce3"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        window.checkAdminPass = () => {
+            if(document.getElementById('adminPassInput').value === "Floza@2018#12Mudi") {
+                document.getElementById('admin-login').classList.add('hidden');
+                document.getElementById('admin-content').classList.remove('hidden');
+                initDashboard();
+            } else alert("የይለፍ ቃል ተሳስቷል!");
+        };
+
+        function initDashboard() {
+            // Results Snapshot
+            onSnapshot(collection(db, "results"), s => {
+                const b = document.getElementById('res-list'); b.innerHTML = "";
+                let totalScore = 0;
+                s.forEach(d => {
+                    const r = d.data();
+                    totalScore += (r.score / r.total) * 100;
+                    const safeDetail = encodeURIComponent(JSON.stringify(r.answersDetail || []));
+                    b.innerHTML += `<tr>
+                        <td>${r.studentID}</td><td>${r.name}</td><td>${r.subject}</td><td>${r.score}/${r.total}</td>
+                        <td>
+                            <button class="btn-detail" onclick="showResultDetails('${r.name}', '${safeDetail}')">Detail</button>
+                            <button class="btn-del" onclick="deleteItem('results','${d.id}')">Del</button>
+                        </td>
+                    </tr>`;
+                });
+                document.getElementById('total-exams').innerText = s.size;
+                document.getElementById('avg-score').innerText = s.size > 0 ? Math.round(totalScore/s.size) + "%" : "0%";
+            });
+
+            // Students Snapshot
+            onSnapshot(collection(db, "students"), s => {
+                const b = document.getElementById('std-list'); b.innerHTML = "";
+                s.forEach(d => {
+                    const st = d.data();
+                    b.innerHTML += `<tr><td>${st.studentID}</td><td>${st.name}</td><td>${st.stream}</td><td>${st.pass}</td>
+                    <td><button class="btn-del" onclick="deleteItem('students','${d.id}')">Delete</button></td></tr>`;
+                });
+                document.getElementById('total-students').innerText = s.size;
+            });
+
+            // Questions Snapshot (Fixed Encoding)
+            onSnapshot(collection(db, "questions"), s => {
+                const container = document.getElementById('subject-sections'); container.innerHTML = "";
+                const groups = {};
+                s.forEach(d => {
+                    const q = d.data(); if(!groups[q.subject]) groups[q.subject] = [];
+                    groups[q.subject].push({id: d.id, ...q});
+                });
+                for(let sub in groups) {
+                    const safeSubData = encodeURIComponent(JSON.stringify(groups[sub]));
+                    container.innerHTML += `<div class="subject-group">
+                        <div class="subject-header" onclick="this.nextElementSibling.classList.toggle('hidden')">
+                            <span>📂 ${sub} (${groups[sub].length} ጥያቄዎች)</span> <span>🔽</span>
+                        </div>
+                        <div class="hidden">
+                            <table>
+                                ${groups[sub].map(q => {
+                                    const safeQ = encodeURIComponent(JSON.stringify(q));
+                                    return `<tr><td>${q.q.substring(0,60)}...</td><td style="text-align:right;">
+                                    <button class="btn-edit" onclick="openEdit('${safeQ}')">Edit</button>
+                                    <button class="btn-del" onclick="deleteItem('questions','${q.id}')">Del</button></td></tr>`;
+                                }).join('')}
+                            </table>
+                        </div></div>`;
+                }
+            });
+        }
+
+        window.openEdit = (encodedData) => {
+            const data = JSON.parse(decodeURIComponent(encodedData));
+            document.getElementById('editQid').value = data.id;
+            document.getElementById('editQtext').value = data.q;
+            document.getElementById('opt0').value = data.opts[0];
+            document.getElementById('opt1').value = data.opts[1];
+            document.getElementById('opt2').value = data.opts[2];
+            document.getElementById('opt3').value = data.opts[3];
+            document.getElementById('editAns').value = data.ans;
+            document.getElementById('editModal').classList.remove('hidden');
+        };
+
+        window.saveEdit = async () => {
+            const id = document.getElementById('editQid').value;
+            await updateDoc(doc(db, "questions", id), {
+                q: document.getElementById('editQtext').value,
+                opts: [document.getElementById('opt0').value, document.getElementById('opt1').value, document.getElementById('opt2').value, document.getElementById('opt3').value],
+                ans: parseInt(document.getElementById('editAns').value)
+            });
+            document.getElementById('editModal').classList.add('hidden');
+            alert("ጥያቄው ተስተካክሏል!");
+        };
+
+        window.showResultDetails = (name, encodedDetail) => {
+            const details = JSON.parse(decodeURIComponent(encodedDetail));
+            document.getElementById('detailHeader').innerText = name + " - ዝርዝር";
+            const b = document.getElementById('detailBody'); b.innerHTML = "";
+            details.forEach(i => {
+                const rowClass = i.isCorrect ? "correct-row" : "wrong-row";
+                b.innerHTML += `<tr class="${rowClass}"><td>${i.qNo}</td><td>${i.userChoice}</td><td>${i.correctChoice}</td><td>${i.isCorrect?'✅':'❌'}</td></tr>`;
+            });
+            document.getElementById('resultDetailModal').classList.remove('hidden');
+        };
+
+        window.deleteItem = async (col, id) => { if(confirm("ይህ መረጃ እስከመጨረሻው እንዲጠፋ ይደረግ?")) await deleteDoc(doc(db, col, id)); };
+        window.searchTable = (id, val) => {
+            const rows = document.querySelectorAll(`#${id} tr`);
+            rows.forEach(r => r.style.display = r.innerText.toLowerCase().includes(val.toLowerCase()) ? "" : "none");
+        };
+
+        window.registerStudent = async () => {
+            const id = document.getElementById('regID').value, name = document.getElementById('regName').value, stream = document.getElementById('regStream').value, pass = document.getElementById('regPass').value;
+            if(!id || !name || !pass) return alert("እባክዎ የተማሪውን መረጃ በትክክል ይሙሉ!");
+            await addDoc(collection(db, "students"), { studentID: id, name, stream, pass });
+            alert("ተማሪው በተሳካ ሁኔታ ተመዝግቧል!");
+            document.getElementById('regID').value = ""; document.getElementById('regName').value = "";
+        };
+
+        window.uploadCSV = function() {
+            const file = document.getElementById('csvFile').files[0], sub = document.getElementById('bulkSub').value, pass = document.getElementById('bulkPass').value, dur = document.getElementById('bulkDuration').value;
+            if(!file || !sub || !pass) return alert("እባክዎ ፋይል እና ትምህርት ይምረጡ!");
+            const r = new FileReader();
+            r.onload = async (e) => {
+                const rows = e.target.result.split('\n').slice(1);
+                for(let row of rows) {
+                    const c = row.split(',');
+                    if(c.length >= 6) await addDoc(collection(db, "questions"), { q: c[0].trim(), opts: [c[1].trim(), c[2].trim(), c[3].trim(), c[4].trim()], ans: parseInt(c[5]), subject: sub, examPassword: pass, duration: parseInt(dur) });
+                }
+                alert("ሁሉም ጥያቄዎች ተጭነዋል!");
+            };
+            r.readAsText(file);
+        };
+
+        window.exportToExcel = () => {
+            const table = document.getElementById("results-table-data");
+            const wb = XLSX.utils.table_to_book(table, {sheet: "Results"});
+            XLSX.writeFile(wb, "Floza_Results_Export.xlsx");
+        };
+    </script>
+</body>
+</html>

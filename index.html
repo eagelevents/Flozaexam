@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Floza-Exam | Detailed Results</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+    <style>
+        :root { --primary: #4e7bf7; --bg: #f1f5f9; --white: #ffffff; --danger: #ef4444; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; user-select: none; overflow-x: hidden; }
+        .hidden { display: none !important; }
+        header { background: var(--primary); color: rgb(255, 255, 255); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+        .container { max-width: 1000px; margin: 20px auto; padding: 20px; }
+        .card { background: var(--white); padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        .avatar { width: 80px; height: 80px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; margin: 0 auto 10px; }
+        .subject-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 20px; }
+        .sub-card { padding: 20px; border: 2px solid #e2e8f0; border-radius: 15px; text-align: center; cursor: pointer; transition: 0.3s; font-weight: bold; position: relative; }
+        .sub-card:hover { border-color: var(--primary); background: #f0f4ff; }
+        input { width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 10px; box-sizing: border-box; margin-bottom: 15px; }
+        .btn { padding: 12px 25px; border-radius: 10px; border: none; cursor: pointer; font-weight: bold; width: 100%; transition: 0.3s; }
+        .btn-primary { background: var(--primary); color: white; }
+        .exam-grid { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
+        .nav-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+        .nav-item { padding: 12px 5px; border: 1px solid #ddd; border-radius: 8px; text-align: center; cursor: pointer; position: relative; }
+        .nav-item.answered { background: var(--primary); color: white; }
+        .nav-item.flagged::after { content: '🚩'; position: absolute; top: -10px; right: -5px; font-size: 12px; }
+        #warning-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--danger); color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; text-align: center; padding: 20px; }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+    <div id="warning-overlay" class="hidden">
+        <h1 style="font-size: 4rem;">⚠️ Warning!</h1>
+        <p style="font-size: 1.5rem;">You have left the test page! If you try to switch tabs again, the test will close!</p>
+        <button class="btn" style="width: 200px; background: white; color: var(--danger);" onclick="closeWarning()">Return to the test one last time.</button>
+    </div>
+
+    <header id="main-header" class="hidden">
+        <div id="header-sub">Student Portal</div>
+        <div id="timer" style="font-weight: bold; font-size: 1.3rem;">00:00</div>
+    </header>
+
+    <div class="container">
+        <div id="login-stage" class="card" style="max-width: 400px; margin: 50px auto;">
+            <h2 style="text-align: center;">Welcome</h2>
+            <input type="text" id="studentID" placeholder="Student ID">
+            <input type="password" id="studentPass" placeholder="Password">
+            <button class="btn btn-primary" id="loginBtn">Login to Portal</button>
+        </div>
+
+        <div id="profile-stage" class="card hidden" style="max-width: 600px; margin: 20px auto;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <div class="avatar" id="user-initial">U</div>
+                <h2 id="user-name">...</h2>
+                <span id="user-stream" style="background: #e0e7ff; color: #4338ca; padding: 5px 15px; border-radius: 20px;">...</span>
+            </div>
+            <h3>Choose a Exam:</h3>
+            <div id="subject-list" class="subject-grid"></div>
+        </div>
+
+        <div id="exam-pass-stage" class="card hidden" style="max-width: 400px; margin: 50px auto; text-align: center;">
+            <h3 id="selected-sub-display">Subject</h3>
+            <input type="password" id="examKey" placeholder="Exam password" style="text-align: center;">
+            <div style="display: flex; gap: 10px;">
+                <button class="btn" style="background: #ccc;" id="backToProfileBtn">Back</button>
+                <button class="btn btn-primary" id="unlockBtn">Start Exam</button>
+            </div>
+        </div>
+
+        <div id="exam-stage" class="hidden">
+            <div class="exam-grid">
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <span id="q-counter" style="font-weight: bold;">Question 1/0</span>
+                        <button id="flagBtn" class="btn" style="width: auto; background: #fef2f2; color: #dc2626;">🚩 Flag</button>
+                    </div>
+                    <div id="q-text" style="min-height: 120px; font-size: 1.1rem; margin-bottom: 20px;"></div>
+                    <div id="opt-container"></div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                        <button class="btn" id="prevBtn" style="width: auto; background: #eee;">Previous</button>
+                        <button class="btn btn-primary" id="nextBtn" style="width: auto;">Next Question</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <h4>Navigation</h4>
+                    <div id="nav-grid" class="nav-grid"></div>
+                    <button class="btn" style="background: #ef4444; color: white; margin-top: 20px;" id="submitBtn">Submit Exam</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="finish-stage" class="card hidden" style="text-align: center;">
+            <h1 id="finish-msg" style="color: #10b981;">✅ finished the exam Good luck!</h1>
+            <p>Your result has been sent.</p>
+            <button class="btn btn-primary" onclick="location.reload()">Back</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, query, where, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAv3J7gcURh2lT_bKspld-xFb0OJX5be3o",
+            authDomain: "finote-loza-portal.firebaseapp.com",
+            projectId: "finote-loza-portal",
+            messagingSenderId: "406419699162",
+            appId: "1:406419699162:web:c24769492e116f5fe8fce3"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let student = null, questions = [], currentIndex = 0, userAns = {}, flagged = {}, selectedSub = "", timeLeft = 0;
+        let isExamActive = false, warningShown = false;
+
+        window.onblur = function() {
+            if (isExamActive) {
+                if (!warningShown) {
+                    document.getElementById('warning-overlay').classList.remove('hidden');
+                    warningShown = true;
+                } else {
+                    finishExam(true);
+                }
+            }
+        };
+
+        window.closeWarning = () => document.getElementById('warning-overlay').classList.add('hidden');
+
+        document.getElementById('loginBtn').onclick = async () => {
+            const id = document.getElementById('studentID').value;
+            const pass = document.getElementById('studentPass').value;
+            const q = query(collection(db, "students"), where("studentID", "==", id), where("pass", "==", pass));
+            const snap = await getDocs(q);
+            if(!snap.empty) {
+                student = snap.docs[0].data();
+                showProfile();
+            } else alert("id or password is incorrect!");
+        };
+
+        function showProfile() {
+            document.getElementById('login-stage').classList.add('hidden');
+            document.getElementById('profile-stage').classList.remove('hidden');
+            document.getElementById('user-name').innerText = student.name;
+            document.getElementById('user-initial').innerText = student.name[0];
+            document.getElementById('user-stream').innerText = student.stream;
+
+            const subjects = student.stream === "Natural" ? ["Maths", "English", "Physics", "Chemistry", "Biology", "SAT"] : ["Maths", "English", "Geography", "History", "Economics", "SAT"];
+            const list = document.getElementById('subject-list');
+            list.innerHTML = "";
+            subjects.forEach(sub => {
+                const div = document.createElement('div');
+                div.className = 'sub-card';
+                div.innerText = sub;
+                div.onclick = () => {
+                    selectedSub = sub;
+                    document.getElementById('profile-stage').classList.add('hidden');
+                    document.getElementById('exam-pass-stage').classList.remove('hidden');
+                    document.getElementById('selected-sub-display').innerText = sub;
+                };
+                list.appendChild(div);
+            });
+        }
+
+        document.getElementById('unlockBtn').onclick = async () => {
+            const inputPass = document.getElementById('examKey').value.trim();
+            const resQ = query(collection(db, "results"), where("studentID", "==", student.studentID), where("subject", "==", selectedSub));
+            const resSnap = await getDocs(resQ);
+
+            if (!resSnap.empty) {
+                alert("You have already taken this test.");
+                return;
+            }
+
+            const q = query(collection(db, "questions"), where("subject", "==", selectedSub));
+            const snap = await getDocs(q);
+
+            if(!snap.empty) {
+                const data = snap.docs.map(doc => doc.data());
+                if(inputPass === String(data[0].examPassword || "").trim()) {
+                    questions = data;
+                    timeLeft = (data[0].duration || 40) * 60;
+                    isExamActive = true;
+                    startExam();
+                } else alert("The Exam password is incorrect!");
+            } else alert("Question not found!");
+        };
+
+        function startExam() {
+            document.getElementById('exam-pass-stage').classList.add('hidden');
+            document.getElementById('main-header').classList.remove('hidden');
+            document.getElementById('exam-stage').classList.remove('hidden');
+            document.getElementById('header-sub').innerText = "Exam: " + selectedSub;
+            renderQuestion();
+            const timer = setInterval(() => {
+                let m = Math.floor(timeLeft/60), s = timeLeft%60;
+                document.getElementById('timer').innerText = `${m}:${s < 10 ? '0'+s : s}`;
+                if(timeLeft-- <= 0 || !isExamActive) clearInterval(timer);
+                if(timeLeft <= 0) finishExam();
+            }, 1000);
+        }
+
+        function renderQuestion() {
+            const q = questions[currentIndex];
+            document.getElementById('q-counter').innerText = `Question ${currentIndex + 1}/${questions.length}`;
+            document.getElementById('q-text').innerHTML = q.q;
+            const flagBtn = document.getElementById('flagBtn');
+            flagBtn.style.background = flagged[currentIndex] ? "#dc2626" : "#fef2f2";
+            flagBtn.style.color = flagged[currentIndex] ? "white" : "#dc2626";
+
+            const container = document.getElementById('opt-container');
+            container.innerHTML = "";
+            q.opts.forEach((opt, i) => {
+                const btn = document.createElement('div');
+                btn.className = 'sub-card';
+                btn.style.marginBottom = "10px";
+                btn.style.textAlign = "left";
+                btn.style.background = userAns[currentIndex] === i ? "#4e7bf7" : "white";
+                btn.style.color = userAns[currentIndex] === i ? "white" : "black";
+                btn.innerHTML = `<strong>${String.fromCharCode(65+i)}.</strong> ${opt}`;
+                btn.onclick = () => { userAns[currentIndex] = i; renderQuestion(); updateNav(); };
+                container.appendChild(btn);
+            });
+            updateNav();
+            if(window.MathJax) MathJax.Hub.Queue(["Typeset", MathJax.Hub]);
+        }
+
+        document.getElementById('flagBtn').onclick = () => { flagged[currentIndex] = !flagged[currentIndex]; renderQuestion(); };
+
+        function updateNav() {
+            const grid = document.getElementById('nav-grid');
+            grid.innerHTML = "";
+            questions.forEach((_, i) => {
+                const d = document.createElement('div');
+                d.className = `nav-item ${userAns[i] !== undefined ? 'answered' : ''} ${flagged[i] ? 'flagged' : ''}`;
+                d.innerText = i + 1;
+                d.onclick = () => { currentIndex = i; renderQuestion(); };
+                grid.appendChild(d);
+            });
+        }
+
+        document.getElementById('nextBtn').onclick = () => { if(currentIndex < questions.length-1) { currentIndex++; renderQuestion(); } };
+        document.getElementById('prevBtn').onclick = () => { if(currentIndex > 0) { currentIndex--; renderQuestion(); } };
+        document.getElementById('submitBtn').onclick = () => { if(confirm("Submit Exam?")) finishExam(); };
+
+        async function finishExam(isForced = false) {
+            isExamActive = false;
+            let score = 0;
+            
+            // የተማሪውን መልሶች ዝርዝር (Detail) የማዘጋጀት ስራ
+            let detailedAnswers = [];
+            questions.forEach((q, i) => {
+                const uAns = userAns[i] !== undefined ? String.fromCharCode(65 + userAns[i]) : "No Answer";
+                const correctAns = String.fromCharCode(65 + q.ans);
+                
+                if(userAns[i] === q.ans) score++;
+                
+                detailedAnswers.push({
+                    qNo: i + 1,
+                    userChoice: uAns,
+                    correctChoice: correctAns,
+                    isCorrect: userAns[i] === q.ans
+                });
+            });
+            
+            await addDoc(collection(db, "results"), {
+                studentID: student.studentID,
+                name: student.name,
+                subject: selectedSub,
+                score: score,
+                total: questions.length,
+                answersDetail: detailedAnswers, // ዝርዝር መልሶች እዚህ ይገባሉ
+                status: isForced ? "Forced (Tab Switch)" : "Regular",
+                date: new Date().toLocaleString()
+            });
+
+            document.getElementById('warning-overlay').classList.add('hidden');
+            document.getElementById('exam-stage').classList.add('hidden');
+            document.getElementById('main-header').classList.add('hidden');
+            document.getElementById('finish-stage').classList.remove('hidden');
+            if(isForced) {
+                document.getElementById('finish-msg').innerText = "🚫 The test is closed!";
+                document.getElementById('finish-msg').style.color = "#ef4444";
+            }
+        }
+
+        document.getElementById('backToProfileBtn').onclick = () => {
+            document.getElementById('exam-pass-stage').classList.add('hidden');
+            document.getElementById('profile-stage').classList.remove('hidden');
+        };
+    </script>
+</body>
+</html>
